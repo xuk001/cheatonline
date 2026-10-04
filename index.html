@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>匿名聊天室 #4471</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0d0f12; color: #c9d1d9;
+    font-family: "SF Mono", Consolas, monospace;
+    height: 100vh; display: flex; flex-direction: column;
+  }
+  header {
+    padding: 12px 16px; border-bottom: 1px solid #21262d;
+    font-size: 13px; color: #6e7681;
+  }
+  header b { color: #58a6ff; }
+  #log {
+    flex: 1; overflow-y: auto; padding: 16px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .msg { max-width: 78%; line-height: 1.6; font-size: 14px; white-space: pre-wrap; }
+  .them { align-self: flex-start; }
+  .me   { align-self: flex-end; text-align: right; color: #7ee787; }
+  .sys  { align-self: center; color: #6e7681; font-size: 12px; font-style: italic; }
+  .end  { align-self: center; text-align: center; color: #f0883e; font-size: 15px; line-height: 2; margin-top: 20px; }
+  .name { font-size: 11px; color: #6e7681; margin-bottom: 3px; }
+  .msg a { color: #58a6ff; text-decoration: underline; word-break: break-all; }
+  .msg a:hover { color: #79c0ff; }
+  #bar { display: flex; border-top: 1px solid #21262d; }
+  #in {
+    flex: 1; background: transparent; border: 0; outline: 0;
+    color: #c9d1d9; font: inherit; padding: 14px 16px;
+  }
+  #send {
+    background: #238636; color: #fff; border: 0; padding: 0 22px;
+    font: inherit; cursor: pointer;
+  }
+  #send:hover { background: #2ea043; }
+</style>
+</head>
+<body>
+<header>匿名聊天室 <b>#4471</b> · 端到端加密 · 无日志</header>
+<div id="log"></div>
+<div id="bar">
+  <input id="in" placeholder="输入消息…" autocomplete="off">
+  <button id="send">发送</button>
+</div>
+
+<script>
+/* ============================================================
+   剧本引擎
+   ------------------------------------------------------------
+   opening : 首句，对方开场自动发送（支持 HTML，如超链接）
+   keywords: 关键词 → 回复。自己往数组里加即可。
+             格式：{ keys: ["词1","词2"], reply: "回复内容" }
+   fallback: 没命中任何关键词时的兜底回复
+   ============================================================ */
+const SCRIPT = {
+  opening: `大哥们在么，我哥最近……不太对劲。嘴里总是念叨着什么，情绪也变得很多，虽说他确实快高考了，但也不至于这样吧
+我把我哥的<a href="https://xuk001.github.io/limarg/" target="_blank" rel="noopener">学校网址</a>和他的<a href="https://xuk001.github.io/treehole/" target="_blank" rel="noopener">动态空间</a>发给你了，我和他同个中学但完全不知道发生什么。
+他的账号密码应该是他比较重要的日子。`,
+
+  keywords: [
+    // —— 通关触发 ——
+    {
+      keys: ["不要相信罗克生"],
+      reply: "你已通关本arg游戏\n生物实验室…………了 ？",
+      end: true
+    },
+
+    // 在这里继续写你的其他关键词规则，例如：
+    // { keys: ["你是谁"], reply: "……" },
+  ],
+
+  fallback: [
+    "……你还在吗？",
+    "（对方正在输入……）",
+  ]
+};
+
+/* ============================================================
+   引擎逻辑（不用改）
+   ============================================================ */
+const log = document.getElementById('log');
+const inp = document.getElementById('in');
+const send = document.getElementById('send');
+
+let fallbackIdx = 0;
+let ended = false;
+const fired = new Set();
+
+// raw = true 时不转义，允许 HTML（首句链接用）
+function add(text, who = 'them', name = '', raw = false) {
+  const d = document.createElement('div');
+  d.className = 'msg ' + who;
+  d.innerHTML = (name ? `<div class="name">${name}</div>` : '') + (raw ? text : escapeHTML(text));
+  log.appendChild(d);
+  log.scrollTop = log.scrollHeight;
+}
+
+function escapeHTML(s) {
+  return s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+
+function reply(text, delay = 600, isEnd = false) {
+  add('对方正在输入…', 'sys');
+  setTimeout(() => {
+    log.lastChild.remove();
+    if (isEnd) {
+      const d = document.createElement('div');
+      d.className = 'msg end';
+      d.innerHTML = escapeHTML(text);
+      log.appendChild(d);
+      log.scrollTop = log.scrollHeight;
+    } else {
+      add(text);
+    }
+  }, delay);
+}
+
+function handle(input) {
+  if (ended) return;
+  const t = input.trim();
+  if (!t) return;
+  add(t, 'me');
+
+  for (const rule of SCRIPT.keywords) {
+    const hit = rule.keys.some(k => t.includes(k));
+    if (hit && !fired.has(rule.reply)) {
+      fired.add(rule.reply);
+      reply(rule.reply, 700 + Math.random() * 600, !!rule.end);
+      if (rule.end) {
+        ended = true;
+        setTimeout(() => {
+          add('系统：连接已关闭', 'sys');
+          inp.disabled = true;
+          send.disabled = true;
+          send.style.opacity = .4;
+        }, 1600);
+      }
+      return;
+    }
+  }
+
+  const fb = SCRIPT.fallback[fallbackIdx % SCRIPT.fallback.length];
+  fallbackIdx++;
+  reply(fb, 900 + Math.random() * 800);
+}
+
+send.onclick = () => { handle(inp.value); inp.value = ''; };
+inp.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { handle(inp.value); inp.value = ''; }
+});
+
+setTimeout(() => {
+  add('系统：已连接到匿名频道', 'sys');
+  setTimeout(() => add(SCRIPT.opening, 'them', '', true), 800);
+}, 400);
+</script>
+</body>
+</html>

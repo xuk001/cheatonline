@@ -59,64 +59,54 @@
 
 <script>
 /* ============================================================
-   剧本引擎
+   剧本引擎（线性闯关版）
    ------------------------------------------------------------
-   时间停顿规则：
-     · reply 里用 双换行(\n\n) 分隔，引擎会拆成多条消息逐条发送
-     · 每条消息前显示「对方正在输入…」，时长随文本长度变化
-     · 段与段之间随机停顿 0.8~1.6 秒
+   玩家必须按 STAGES 顺序答对，才能推进。
+   跳步 / 答错 → 统一提示，不推进。
    ------------------------------------------------------------
-   opening    : 首句，对方开场自动发送（支持 HTML）
-   keywords   : 关键词 → 回复
-       keys     : 触发词数组
-       reply    : 回复内容（\n\n 分段）
+   opening : 首句，开场自动发送（支持 HTML）
+   stages  : 按顺序的关卡数组
+       keys     : 本关正确答案（含任一即算对）
+       reply    : 答对后的回复（\n\n 分段，逐条发送）
        raw      : true 时不转义 HTML（用于嵌图片）
-       end      : true 时回复完即通关
        after    : 毫秒，回复后延迟自动追加
        afterText: after 延迟后发送的内容
        endAfter : true 时 afterText 之后通关
-   fallback   : 没命中关键词时的兜底回复（轮流出现）
+   fallback : 答错/跳步时的提示（轮流出现）
    ============================================================ */
 const SCRIPT = {
   opening: `大哥们在么，我哥最近……不太对劲。嘴里总是念叨着什么，情绪也变得很多，虽说他确实快高考了，但也不至于这样吧
 我把我哥的<a href="https://xuk001.github.io/limarg/" target="_blank" rel="noopener">学校网址</a>和他的<a href="https://xuk001.github.io/treehole/" target="_blank" rel="noopener">动态空间</a>发给你了，我和他同个中学但完全不知道发生什么。
-他的账号密码应该是他比较重要的日子。
-对了，我哥叫林凯，你知道我叫什么名字吗？`,
+他的账号密码应该是他比较重要的日子。比如生日？
+对了，你知道我叫什么名字吗？`,
 
-  keywords: [
-    // —— 答对名字：夸赞 + 追问密码 ——
+  stages: [
+    // 第 1 关：名字
     {
       keys: ["林文昌"],
       reply: "……\n你真查到了。\n程序员、记者，还是侦探？你这调查能力有点吓人啊。\n\n对，我叫林文昌，林凯的亲弟弟。\n既然你连我都能挖出来，那我哥的事，就拜托你了。\n\n那再考考你——你能查到我哥动态空间的账号密码吗？"
     },
 
-    // —— 分支：回答李恩 → 诡异结局 ——
-    {
-      keys: ["李恩"],
-      reply: "被你猜到了啊，看来该换个名字了，再见啊，你其实是学生对吧：）",
-      end: true
-    },
-
-    // —— 答对密码 ——
+    // 第 2 关：密码
     {
       keys: ["20060911"],
       reply: "20060911……你连这个都挖到了。\n\n行，动态空间你进去吧，里面的东西，你自己看。\n我哥最近念叨的就是那些——我一个字都看不懂，但总觉得不对劲。\n\n你觉得是谁害了他？"
     },
 
-    // —— 回答罗克生 ——
+    // 第 3 关：罗克生
     {
       keys: ["罗克生"],
       reply: "罗克生……果然。\n我早就看他不顺眼了。\n我哥经常跟我提起他。\n\n他还说过一个地方，叫「寄望实验室」，说是秘密的，谁都不许提。\n你能不能……去查查那个实验室？\n\n对了——我哥之前在生物工程的书上写过一句话：「寄望实验室，是将「生物的希望」寄托于我们，这也是我的信念。」\n\n等下，我哥突然说要出门，我偷偷跟上去了……结果到了学校，人就不见了。\n你觉得，要去哪？"
     },
 
-    // —— 回答体育馆 ——
+    // 第 4 关：体育馆
     {
       keys: ["体育馆", "体育场"],
-      reply: "体育馆……对，他以前总去那儿。\n\n我去了。\n门窗全被封死了，我用手指抠开一条缝，往里看——\n一圈人围着一个人，中间那个……我哥。\n罗克生也在里面。\n\n我没敢多看，腿都软了，转身就跑。\n后来我又折回去，溜进了罗克生的办公室。\n桌上压着一张纸，我拍下来了——\n<img src=\"密码本.jpg\" class=\"chatimg\" alt=\"密码本.jpg\">\n\n我总觉得罗克生一定有问题。\n你要是能查到什么证据，就发给我——我去举报。",
+      reply: "体育馆……对，他以前总去那儿。\n\n我去了。\n门窗全被封死了，我用手指抠开一条缝，往里看——\n一圈人围着一个人，中间那个……我哥。\n罗克生也在里面。\n\n我没敢多看，腿都软了，转身就跑。\n后来我又折回去，溜进了罗克生的办公室。\n桌上压着一张纸，我拍下来了——\n<img src=\"password.jpg\" class=\"chatimg\" alt=\"密码本\">\n\n我总觉得罗克生一定有问题。\n你要是能查到什么证据，就发给我——我去举报。",
       raw: true
     },
 
-    // —— 发送证据编号 → 举报 → 通关 ——
+    // 第 5 关：证据编号 → 举报 → 通关
     {
       keys: ["BIOH-0911-4711-4620"],
       reply: "……\n对，就是这串东西。\n「BIOH-0911-4711-4620」——我记住了。\n\n终于拿到证据了。\n我现在就去教育局举报。\n谢谢你。真的。",
@@ -140,8 +130,8 @@ const inp = document.getElementById('in');
 const send = document.getElementById('send');
 
 let fallbackIdx = 0;
+let stageIdx = 0;      // 当前应回答的关卡序号
 let ended = false;
-const fired = new Set();
 
 function escapeHTML(s) {
   return s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -173,19 +163,18 @@ function finish() {
   }, 1600);
 }
 
-// 按 \n\n 拆段，逐条发送，每条前有「正在输入…」，段间随机停顿
 function sendSegments(text, opts, onDone) {
   const parts = String(text).split(/\n\n+/).filter(s => s.trim().length);
   let i = 0;
 
   function next() {
     if (i >= parts.length) { onDone && onDone(); return; }
+    if (ended) return;
 
     const seg = parts[i];
     const isLast = (i === parts.length - 1);
 
     add('对方正在输入…', 'sys');
-    // 打字时长随文本长度变化：0.5s 起步，每字 20ms，上限 1.8s
     const typingDelay = Math.min(1800, 500 + seg.length * 20);
 
     setTimeout(() => {
@@ -200,7 +189,6 @@ function sendSegments(text, opts, onDone) {
 
       i++;
       if (i < parts.length) {
-        // 段间停顿 0.8~1.6 秒
         setTimeout(next, 800 + Math.random() * 800);
       } else {
         onDone && onDone();
@@ -231,18 +219,21 @@ function handle(input) {
   if (!t) return;
   add(t, 'me');
 
-  for (const rule of SCRIPT.keywords) {
-    const hit = rule.keys.some(k => t.includes(k));
-    if (hit && !fired.has(rule.reply)) {
-      fired.add(rule.reply);
-      reply(rule.reply, 700 + Math.random() * 600, {
-        raw: rule.raw, end: rule.end,
-        after: rule.after, afterText: rule.afterText, endAfter: rule.endAfter
+  // 只匹配当前关卡
+  const stage = SCRIPT.stages[stageIdx];
+  if (stage) {
+    const hit = stage.keys.some(k => t.includes(k));
+    if (hit) {
+      stageIdx++;
+      reply(stage.reply, 700 + Math.random() * 600, {
+        raw: stage.raw, end: stage.end,
+        after: stage.after, afterText: stage.afterText, endAfter: stage.endAfter
       });
       return;
     }
   }
 
+  // 答错 / 跳步
   const fb = SCRIPT.fallback[fallbackIdx % SCRIPT.fallback.length];
   fallbackIdx++;
   add('对方正在输入…', 'sys');
